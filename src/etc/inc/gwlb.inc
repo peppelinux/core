@@ -209,6 +209,19 @@ EOD;
                 continue;
             }
 
+            /*
+             * 'monitor' has been set, so makes sure it has precedence over
+             * 'gateway' in defining the source IP. Otherwise if 'gateway'
+             * is a local link and 'monitor' is global routable then the
+             * ICMP6 response would not find its way back home...
+             */
+            if (is_linklocal($gateway['monitor']) && !strstr($gateway['monitor'], '%')) {
+                $gateway['monitor'] .= "%{$gateway['interface']}";
+            }
+            if (is_linklocal($gwifip) && !strstr($gwifip, '%')) {
+                $gwifip .= "%{$gateway['interface']}";
+            }
+
             /* flush the monitor unconditionally */
             if (is_ipaddrv6($gateway['gateway']) && $gateway['monitor'] != $gateway['gateway']) {
                 log_error("Removing static route for monitor {$gateway['monitor']} via {$gateway['gateway']}");
@@ -231,15 +244,6 @@ EOD;
                 system_host_route($gateway['monitor'], $gateway['gateway'], false, true);
             }
 
-            /*
-             * 'monitor' has been set, so makes sure it has precedence over
-             * 'gateway' in defining the source IP. Otherwise if 'gateway'
-             * is a local link and 'monitor' is global routable then the
-             * ICMP6 response would not find its way back home...
-             */
-            if (is_linklocal($gateway['monitor']) && !strstr($gateway['monitor'], '%')) {
-                $gateway['monitor'] .= "%{$gateway['interface']}";
-            }
         } else {
             continue;
         }
