@@ -196,32 +196,17 @@ EOD;
                 system_host_route($gateway['monitor'], $gateway['gateway'], false, true);
             }
         } elseif ($gateway['ipprotocol'] == "inet6") { // This is an IPv6 gateway...
-            if ($gateway['monitor'] == $gateway['gateway']) {
-                /* link locals really need a different src ip */
-                if (is_linklocal($gateway['gateway'])) {
-                    $gwifip = find_interface_ipv6_ll($gateway['interface']);
-                } else {
-                    $gwifip = find_interface_ipv6($gateway['interface']);
-                }
+            if (is_linklocal($gateway['monitor'])) {
+                /* link local monitor needs a link local address for the "src" part */
+                $gwifip = find_interface_ipv6_ll($gateway['interface']);
             } else {
-                /* 'monitor' has been set, so makes sure it has precedence over
-                 * 'gateway' in defining the source IP. Otherwise if 'gateway'
-                 * is a local link and 'monitor' is global routable then the
-                 * ICMP6 response would not find its way back home...
-                 */
+                /* monitor is a routable address, so use a routable address for the "src" part */
                 $gwifip = find_interface_ipv6($gateway['interface']);
-                if (is_linklocal($gateway['monitor'])) {
-                    if (!strstr($gateway['monitor'], '%')) {
-                        $gateway['monitor'] .= "%{$gateway['interface']}";
-                    }
-                } else {
-                    // Monitor is a routable address, so use a routable address for the "src" part
-                    $gwifip = find_interface_ipv6($gateway['interface']);
-                }
             }
 
             if (!is_ipaddrv6($gwifip)) {
-                continue; //Skip this target
+                /* skip this target */
+                continue;
             }
 
             /* flush the monitor unconditionally */
@@ -230,7 +215,7 @@ EOD;
                 system_host_route($gateway['monitor'], $gateway['gateway'], true, false);
             }
 
-            /* Do not monitor if such was requested */
+            /* do not monitor if such was requested */
             if (isset($gateway['disabled']) || isset($gateway['monitor_disable'])) {
                 continue;
             }
@@ -244,6 +229,16 @@ EOD;
             if (is_ipaddrv6($gateway['gateway']) && $gateway['monitor'] != $gateway['gateway']) {
                 log_error("Adding static route for monitor {$gateway['monitor']} via {$gateway['gateway']}");
                 system_host_route($gateway['monitor'], $gateway['gateway'], false, true);
+            }
+
+            /*
+             * 'monitor' has been set, so makes sure it has precedence over
+             * 'gateway' in defining the source IP. Otherwise if 'gateway'
+             * is a local link and 'monitor' is global routable then the
+             * ICMP6 response would not find its way back home...
+             */
+            if (is_linklocal($gateway['monitor']) && !strstr($gateway['monitor'], '%')) {
+                $gateway['monitor'] .= "%{$gateway['interface']}";
             }
         } else {
             continue;
